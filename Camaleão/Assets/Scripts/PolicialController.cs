@@ -1,0 +1,123 @@
+using UnityEngine;
+
+public class PolicialController : MonoBehaviour
+{
+    private Rigidbody2D _npcRigidbody2D;
+    private Animator _npcAnimator;
+
+    [Header("Configurações do NPC")]
+    public float _npcSpeed = 3f; // Velocidade de Patrulha
+
+    [Header("Configurações da Lanterna")]
+    [Tooltip("Arraste o objeto Freeform Light 2D da lanterna aqui.")]
+    public Transform _lanternLightTransform; // Referência para o Transform da lanterna
+    [Tooltip("Offset (graus) para alinhar a rotação da lanterna com a direção do NPC.")]
+    public float _lanternRotationOffset = 90f; // Ajuste para alinhar a lanterna (Ex: 90 para Freeform padrão)
+
+    // VARIÁVEIS DE DIREÇÃO
+    private Vector2 _targetDirection; // Direção que o NPC deve seguir
+    private float _lastMoveX;
+    private float _lastMoveY;
+
+    // Lógica de teste simples: o NPC muda de direção a cada X segundos
+    private float _currentPatrolTime; 
+    public float _directionChangeTime = 3f; // Tempo para mudar de direção
+
+    void Start()
+    {
+        _npcRigidbody2D = GetComponent<Rigidbody2D>();
+        _npcAnimator = GetComponent<Animator>();
+
+        // Começa movendo-se para a direita (apenas para inicializar)
+        _targetDirection = Vector2.right;
+        _currentPatrolTime = _directionChangeTime; 
+
+        // Configura o Rigidbody para interpolação para suavizar o movimento visual.
+        if (_npcRigidbody2D != null)
+        {
+            _npcRigidbody2D.interpolation = RigidbodyInterpolation2D.Extrapolate; 
+        }
+
+        // Garante que o objeto da lanterna foi atribuído
+        if (_lanternLightTransform == null)
+        {
+            Debug.LogWarning("O _lanternLightTransform não foi atribuído no NPCController para " + gameObject.name + ". A lanterna não girará.", this);
+        }
+    }
+
+    void Update()
+    {
+        // Lógica de teste simples: muda de direção a cada 'directionChangeTime'
+        _currentPatrolTime -= Time.deltaTime;
+        if (_currentPatrolTime <= 0)
+        {
+            ChangeDirection();
+            _currentPatrolTime = _directionChangeTime;
+        }
+    }
+
+    void FixedUpdate()
+    {
+        // 1. Movimento do NPC
+        _npcRigidbody2D.MovePosition(_npcRigidbody2D.position + _targetDirection * _npcSpeed * Time.fixedDeltaTime);
+
+        // 2. Lógica de Animação
+        if (_targetDirection.sqrMagnitude > 0.01f) // Se o NPC está se movendo
+        {
+            // Seta os parâmetros de Movimento no Animator
+            _npcAnimator.SetFloat("AxisX", _targetDirection.x);
+            _npcAnimator.SetFloat("AxisY", _targetDirection.y);
+            _npcAnimator.SetInteger("Movimento", 1); // Animação de Walk
+
+            // Armazena a última direção válida
+            _lastMoveX = _targetDirection.x;
+            _lastMoveY = _targetDirection.y;
+            
+            // 3. Rotação da Lanterna (apenas quando em movimento)
+            RotateLanternToDirection(_targetDirection);
+        }
+        else // Se o NPC está parado (idle)
+        {
+            // Seta os parâmetros de Idle no Animator
+            _npcAnimator.SetInteger("Movimento", 0); // Animação de Idle
+            _npcAnimator.SetFloat("LastMoveX", _lastMoveX);
+            _npcAnimator.SetFloat("LastMoveY", _lastMoveY);
+
+            // A lanterna deve manter a última direção para onde o NPC olhou antes de parar
+            RotateLanternToDirection(new Vector2(_lastMoveX, _lastMoveY));
+        }
+    }
+
+    /// <summary>
+    /// Função de teste que apenas muda a direção do NPC para testar todas as animações
+    /// e a rotação da lanterna.
+    /// </summary>
+    void ChangeDirection()
+    {
+        int randomDir = Random.Range(0, 4); // 0=Right, 1=Left, 2=Up, 3=Down
+
+        switch (randomDir)
+        {
+            case 0: _targetDirection = Vector2.right; break;
+            case 1: _targetDirection = Vector2.left; break;
+            case 2: _targetDirection = Vector2.up; break;
+            case 3: _targetDirection = Vector2.down; break;
+        }
+    }
+
+    /// <summary>
+    /// Rotaciona a lanterna (Freeform Light 2D) para apontar na direção do movimento do NPC.
+    /// </summary>
+    /// <param name="direction">A direção em Vector2 para onde a lanterna deve apontar.</param>
+    void RotateLanternToDirection(Vector2 direction)
+    {
+        if (_lanternLightTransform != null && direction.sqrMagnitude > 0.01f)
+        {
+            // Calcula o ângulo em graus a partir do vetor de direção
+            float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+            
+            // Aplica a rotação ao Transform da lanterna, adicionando o offset
+            _lanternLightTransform.rotation = Quaternion.Euler(0, 0, angle + _lanternRotationOffset);
+        }
+    }
+}
