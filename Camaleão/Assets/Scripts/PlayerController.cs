@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Rendering.Universal; // Importante para acessar o Light2D do URP
 
 public class PlayerController : MonoBehaviour
 {
@@ -7,10 +8,10 @@ public class PlayerController : MonoBehaviour
 
     // Váriaveis de configuração de velocidade
     [Header("Configurações de Velocidade")]
-    public float _playerRunSpeed;      
-    public float _playerNormalSpeed;   
-    public float _playerSlowSpeed;     
-    private float _currentSpeed;          
+    public float _playerRunSpeed = 8f; 	  
+    public float _playerNormalSpeed = 5f; 
+    public float _playerSlowSpeed = 2f; 	 
+    private float _currentSpeed; 		 
     private Vector2 _rawInput;
     
     // Variáveis para persistência da direção
@@ -23,13 +24,27 @@ public class PlayerController : MonoBehaviour
     public KeyCode _slowMoveKey = KeyCode.LeftControl; 
     [Tooltip("Tecla ou botão para Correr (Run)")]
     public KeyCode _runKey = KeyCode.LeftShift;
+    
+    // --- NOVO: Configuração da Lanterna ---
+    [Header("Lanterna do Camaleão")]
+    [Tooltip("Arraste o componente Light2D (luz do jogador) aqui.")]
+    public Light2D playerLight;
+    [Tooltip("Tecla para ligar/desligar a luz.")]
+    public KeyCode _lightToggleKey = KeyCode.Q;
+
 
     void Start()
     {
         _playerRigidbody2D = GetComponent<Rigidbody2D>();
         _playerAnimator = GetComponent<Animator>();
 
-        _currentSpeed = _playerNormalSpeed; // Define a velocidade atual como a normal.
+        _currentSpeed = _playerNormalSpeed; 
+
+        // Adiciona uma verificação para garantir que o Light2D está atribuído
+        if (playerLight == null)
+        {
+            Debug.LogWarning("O componente Light2D não foi atribuído ao PlayerController!");
+        }
     }
 
     void Update()
@@ -37,9 +52,12 @@ public class PlayerController : MonoBehaviour
         float horizontalInput = Input.GetAxisRaw("Horizontal");
         float verticalInput = Input.GetAxisRaw("Vertical");
 
-        _rawInput = new Vector2(horizontalInput, verticalInput).normalized; // Normaliza o vetor nas diagonais
+        _rawInput = new Vector2(horizontalInput, verticalInput).normalized;
 
         ControlPlayerSpeed();
+        
+        // --- NOVO: Lógica da Lanterna ---
+        HandleLightInput();
     }
 
     void FixedUpdate()
@@ -47,26 +65,22 @@ public class PlayerController : MonoBehaviour
         Vector2 movementVector = _rawInput;
 
         // Lógica de Movimento
-        if (movementVector.sqrMagnitude > 0.01f) // Usa 0.01f para maior precisão
+        if (movementVector.sqrMagnitude > 0.01f) 
         {
-            // Movimenta o jogador
             MovePlayer(movementVector);
 
-            // Seta os parâmetros do Animator
             _playerAnimator.SetFloat("AxisX", movementVector.x);
             _playerAnimator.SetFloat("AxisY", movementVector.y);
             
-            // Armazenar a última direção válida quando o jogador está se movendo
             _lastMoveX = movementVector.x;
             _lastMoveY = movementVector.y;
             
-            _playerAnimator.SetInteger("Movimento", 1); // Animação de Movimento
+            _playerAnimator.SetInteger("Movimento", 1); 
         }
         else
         {
-            _playerAnimator.SetInteger("Movimento", 0); // Animação de Idle 
+            _playerAnimator.SetInteger("Movimento", 0); 
             
-            // Usa a última direção para a Blend Tree de Idle
             _playerAnimator.SetFloat("LastMoveX", _lastMoveX);
             _playerAnimator.SetFloat("LastMoveY", _lastMoveY);
         }
@@ -75,17 +89,14 @@ public class PlayerController : MonoBehaviour
     // Controla a velocidade do jogador com base na entrada do usuário
     void ControlPlayerSpeed()
     {
-        // Movimento Lento (Stealth)
         if (Input.GetKey(_slowMoveKey))
         {
             _currentSpeed = _playerSlowSpeed;
         }
-        // Corrida
         else if (Input.GetKey(_runKey))
         {
             _currentSpeed = _playerRunSpeed;
         }
-        // Movimento Normal
         else
         {
             _currentSpeed = _playerNormalSpeed;
@@ -96,5 +107,28 @@ public class PlayerController : MonoBehaviour
     void MovePlayer(Vector2 direction)
     {
         _playerRigidbody2D.MovePosition(_playerRigidbody2D.position + direction * _currentSpeed * Time.fixedDeltaTime);
+    }
+    
+    // --- NOVO MÉTODO: Lógica de Input da Lanterna ---
+    void HandleLightInput()
+    {
+        // Usa GetKeyDown para detectar apenas o momento em que a tecla é pressionada
+        if (Input.GetKeyDown(_lightToggleKey))
+        {
+            ToggleLight();
+        }
+    }
+
+    // --- NOVO MÉTODO: Ligar/Desligar a Luz ---
+    void ToggleLight()
+    {
+        if (playerLight != null)
+        {
+            // O componente Light2D usa a propriedade 'enabled' para ligar/desligar
+            playerLight.enabled = !playerLight.enabled;
+            
+            // Dica: Adicione um SFX de clique/ligar aqui!
+            // Ex: AudioManager.instance.PlaySFX("Click");
+        }
     }
 }
